@@ -1,12 +1,10 @@
 import java.nio.file.Files.lines
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.*
+import java.util.Comparator.comparing
 import java.util.Comparator.comparingInt
 import java.util.stream.Collectors.toList
-
-fun String.path(): Path = Paths.get({}.javaClass.classLoader.getResource(this).toURI())
-
-typealias Hand = List<Card>
 
 fun main() {
     val hands = lines("poker-hands.csv".path())
@@ -19,9 +17,16 @@ fun main() {
         }
         .collect(toList())
     val combinations = hands
-        .groupBy { getCombination(it) }
-        .toSortedMap(comparingInt { it.second })
+        .map { Pair(getCombination(it), it) }
+        .sortedWith(
+            compareBy<Pair<Combination, Hand>, Combination>(combinationComparator) { it.first }
+                .thenComparing(compareBy(highestCardComparator) { it.second })
+                .reversed()
+        )
+        .groupBy { it.first }
+        .toSortedMap(combinationComparator.reversed())
         .mapKeys { it.key.first }
+        .mapValues { pair -> pair.value.map { it.second } }
 
     combinations.mapValues { it.value.size }.forEach { (combinationName, combinationsCount) ->
         println("$combinationName: count = $combinationsCount, probability = ${combinationsCount.toDouble() / hands.size}")
@@ -33,11 +38,7 @@ fun main() {
         println("   $it")
     }
     combinations
-        .mapValues { entry ->
-            entry.value.map {
-                it.joinToString(prefix = "[", postfix = "]") { card -> "(${card.rank},${card.suit})" }
-            }
-        }
+        .mapValues { entry -> entry.value.map { it.joinToString(prefix = "[", postfix = "]") } }
         .forEach { (combinationName, hands) ->
             println(combinationName)
             if (hands.size <= 5) {
@@ -50,17 +51,23 @@ fun main() {
         }
 }
 
+/*____________________________________________________________________________*/
+
+val combinationComparator: Comparator<Combination> = comparingInt { it.second }
+
+val highestCardComparator: Comparator<Hand> = comparing { getHighestCard(it) }
+
 fun getCombination(hand: Hand) = when {
-    isFlashRoyal(hand) -> Pair("Flash royal", 1)
-    isStraightFlash(hand) -> Pair("Straight flash", 2)
-    isKare(hand) -> Pair("Kare", 3)
-    isFullHouse(hand) -> Pair("Full house", 4)
-    isFlash(hand) -> Pair("Flash", 5)
-    isStraight(hand) -> Pair("Straight", 6)
-    isSet(hand) -> Pair("Set", 7)
-    isTwoPairs(hand) -> Pair("Two pairs", 8)
-    isPair(hand) -> Pair("Pair", 9)
-    else -> Pair("High", 100)
+    isFlashRoyal(hand) -> Pair("Flash royal", 10)
+    isStraightFlash(hand) -> Pair("Straight flash", 9)
+    isKare(hand) -> Pair("Kare", 8)
+    isFullHouse(hand) -> Pair("Full house", 7)
+    isFlash(hand) -> Pair("Flash", 6)
+    isStraight(hand) -> Pair("Straight", 5)
+    isSet(hand) -> Pair("Set", 4)
+    isTwoPairs(hand) -> Pair("Two pairs", 3)
+    isPair(hand) -> Pair("Pair", 2)
+    else -> Pair("High", 1)
 }
 
 fun isFlashRoyal(hand: Hand): Boolean {
@@ -96,10 +103,32 @@ fun isPair(hand: Hand) = countsByRank(hand).contains(2)
 
 /*____________________________________________________________________________*/
 
+fun getHighestCard(hand: Hand): Card {
+    return (hand.find { it.rank == 1 } ?: hand.maxByOrNull { it.rank })!!
+}
+
 fun countsByRank(hand: Hand) = hand.groupingBy { it.rank }.eachCount().values
 
 fun isHighestStraight(hand: Hand): Boolean {
     return hand.map { it.rank }.sorted() == (listOf(1) + (10..13).toList())
 }
 
-data class Card(val suit: Int, val rank: Int)
+fun String.path(): Path = Paths.get({}.javaClass.classLoader.getResource(this).toURI())
+
+typealias Hand = List<Card>
+
+typealias Combination = Pair<String, Int>
+
+data class Card(val suit: Int, val rank: Int) : Comparable<Card> {
+    override fun compareTo(other: Card): Int {
+        return when {
+            rank == 1 -> 1
+            other.rank == 1 -> -1
+            else -> comparingInt<Card> { it.rank }.compare(this, other)
+        }
+    }
+
+    override fun toString(): String {
+        return "(${rank},${suit})"
+    }
+}
