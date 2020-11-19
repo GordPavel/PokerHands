@@ -6,6 +6,8 @@ import java.util.stream.Collectors.toList
 
 fun String.path(): Path = Paths.get({}.javaClass.classLoader.getResource(this).toURI())
 
+typealias Hand = List<Card>
+
 fun main() {
     val hands = lines("poker-hands.csv".path())
         .map { line ->
@@ -48,7 +50,7 @@ fun main() {
         }
 }
 
-fun getCombination(hand: List<Card>) = when {
+fun getCombination(hand: Hand) = when {
     isFlashRoyal(hand) -> Pair("Flash royal", 1)
     isStraightFlash(hand) -> Pair("Straight flash", 2)
     isKare(hand) -> Pair("Kare", 3)
@@ -61,42 +63,42 @@ fun getCombination(hand: List<Card>) = when {
     else -> Pair("High", 100)
 }
 
-fun isFlashRoyal(hand: List<Card>): Boolean {
+fun isFlashRoyal(hand: Hand): Boolean {
     if (!isFlash(hand)) return false
     return isHighestStraight(hand)
 }
 
-fun isStraightFlash(hand: List<Card>): Boolean {
+fun isStraightFlash(hand: Hand): Boolean {
     if (!isFlash(hand)) return false
     return isStraight(hand)
 }
 
-fun isKare(hand: List<Card>) = countsByRank(hand).contains(4)
+fun isKare(hand: Hand) = countsByRank(hand).contains(4)
 
-fun isFullHouse(hand: List<Card>): Boolean {
+fun isFullHouse(hand: Hand): Boolean {
     val countsByRank = countsByRank(hand)
     return countsByRank.contains(3) && countsByRank.contains(2)
 }
 
-fun isFlash(hand: List<Card>): Boolean {
+fun isFlash(hand: Hand): Boolean {
     val firstSuit = hand[0].suit
     return hand.map { it.suit }.all { it == firstSuit }
 }
 
-fun isStraight(hand: List<Card>) =
+fun isStraight(hand: Hand) =
     isHighestStraight(hand) || hand.map { it.rank }.sorted().zipWithNext { a, b -> b - a }.all { it == 1 }
 
-fun isSet(hand: List<Card>) = countsByRank(hand).contains(3)
+fun isSet(hand: Hand) = countsByRank(hand).contains(3)
 
-fun isTwoPairs(hand: List<Card>) = countsByRank(hand).groupingBy { it }.eachCount().getOrDefault(2, 0) == 2
+fun isTwoPairs(hand: Hand) = countsByRank(hand).groupingBy { it }.eachCount().getOrDefault(2, 0) == 2
 
-fun isPair(hand: List<Card>) = countsByRank(hand).contains(2)
+fun isPair(hand: Hand) = countsByRank(hand).contains(2)
 
 /*____________________________________________________________________________*/
 
-fun countsByRank(hand: List<Card>) = hand.groupingBy { it.rank }.eachCount().values
+fun countsByRank(hand: Hand) = hand.groupingBy { it.rank }.eachCount().values
 
-fun isHighestStraight(hand: List<Card>): Boolean {
+fun isHighestStraight(hand: Hand): Boolean {
     return hand.map { it.rank }.sorted() == (listOf(1) + (10..13).toList())
 }
 
