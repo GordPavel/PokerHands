@@ -1,13 +1,15 @@
+import java.io.FileWriter
 import java.nio.file.Files.lines
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
 import java.util.Comparator.comparing
 import java.util.Comparator.comparingInt
-import java.util.stream.Collectors.toList
+import java.util.function.Function.identity
+import java.util.stream.Collectors.toMap
 
 fun main() {
-    val hands = lines("poker-hands.csv".path())
+    val combinations: Map<Hand, Pair<Combination, Hand>> = lines("poker-hands-combinations.csv".path())
         .map { line ->
             line.split(",")
                 .map(String::toInt)
@@ -15,40 +17,35 @@ fun main() {
                 .filterIndexed { index, _ -> index % 2 == 0 }
                 .map { Card(it.first, it.second) }
         }
-        .collect(toList())
-    val combinations = hands
-        .map { Pair(getCombination(it), it) }
-        .sortedWith(
-            compareBy<Pair<Combination, Hand>, Combination>(combinationComparator) { it.first }
-                .thenComparing(compareBy(highestCardComparator) { it.second })
-                .reversed()
-        )
-        .groupBy { it.first }
-        .toSortedMap(combinationComparator.reversed())
-        .mapKeys { it.key.first }
-        .mapValues { pair -> pair.value.map { it.second } }
-
-    combinations.mapValues { it.value.size }.forEach { (combinationName, combinationsCount) ->
-        println("$combinationName: count = $combinationsCount, probability = ${combinationsCount.toDouble() / hands.size}")
-    }
-
-    println("_______________________________________________________")
-
-    val print: (String) -> Unit = {
-        println("   $it")
-    }
-    combinations
-        .mapValues { entry -> entry.value.map { it.joinToString(prefix = "[", postfix = "]") } }
-        .forEach { (combinationName, hands) ->
-            println(combinationName)
-            if (hands.size <= 5) {
-                hands.forEach(print)
-            } else {
-                hands.slice(0..4).forEach(print)
-                println("   ...")
+        .collect(toMap(
+            identity(),
+            { hand ->
+                hand.combinations(5)
+                    .map { Pair(getCombination(it), it) }
+                    .maxWithOrNull(handComparator)!!
             }
-            println("_______________________________________________________")
-        }
+        ))
+    FileWriter("resolved-combinations.txt").use { file ->
+        combinations.values
+            .groupingBy { it.first }
+            .eachCount()
+            .toSortedMap(comparingInt<Combination> { it.second }.reversed())
+            .forEach { (combination, count) ->
+                file.write("Combination: ${combination.first}, count: $count\n")
+            }
+        file.write("_______________________________________________________\n")
+        file.write("_______________________________________________________\n")
+        combinations
+            .forEach { (hand: Hand, combination: Pair<Combination, Hand>) ->
+                file.write("$hand\n")
+                val comb = MutableList(combination.second.size) { combination.second[it] }
+                file.write(hand.joinToString(prefix = " ", postfix = " \n", separator = "  ") {
+                    " ${" ".repeat(it.rank.toString().length)}${if (comb.remove(it)) "*" else " "}${" ".repeat(it.suit.toString().length)} "
+                })
+                file.write("${combination.first.first}\n")
+                file.write("_______________________________________________________\n")
+            }
+    }
 }
 
 /*____________________________________________________________________________*/
@@ -56,6 +53,10 @@ fun main() {
 val combinationComparator: Comparator<Combination> = comparingInt { it.second }
 
 val highestCardComparator: Comparator<Hand> = comparing { getHighestCard(it) }
+
+val handComparator: Comparator<Pair<Combination, Hand>> =
+    compareBy<Pair<Combination, Hand>, Combination>(combinationComparator) { it.first }
+        .thenComparing(compareBy(highestCardComparator) { it.second })
 
 fun getCombination(hand: Hand) = when {
     isFlashRoyal(hand) -> Pair("Flash royal", 10)
@@ -116,6 +117,33 @@ fun isHighestStraight(hand: Hand): Boolean {
 fun String.path(): Path = Paths.get({}.javaClass.classLoader.getResource(this).toURI())
 
 typealias Hand = List<Card>
+
+@Suppress("unused")
+fun Hand.toString(): String = this.joinToString(prefix = "[", postfix = "]")
+
+fun <T> List<T>.combinations(m: Int): Sequence<List<T>> {
+    val list = this
+    return sequence {
+        val n = list.size
+        val result = MutableList(m) { list[0] }
+        val stack = LinkedList<Int>()
+        stack.push(0)
+        while (stack.isNotEmpty()) {
+            var resIndex = stack.size - 1
+            var arrIndex = stack.pop()
+
+            while (arrIndex < n) {
+                result[resIndex++] = list[arrIndex++]
+                stack.push(arrIndex)
+
+                if (resIndex == m) {
+                    yield(result.toList())
+                    break
+                }
+            }
+        }
+    }
+}
 
 typealias Combination = Pair<String, Int>
 
