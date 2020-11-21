@@ -31,12 +31,20 @@ class RestController(
             .map(handParser::parseHand)
             .map(combinationFinder::getHighestCombination)
 
+    @PatchMapping(produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    fun getHighestCombinationFrom(@RequestBody hands: List<String>): ParallelFlux<Result> {
+        return Flux.fromIterable(hands)
+            .parallel()
+            .runOn(scheduler)
+            .map { line -> combinationFinder.getHighestCombination(handParser.parseHand(line)) }
+    }
+
     @PostMapping(
         consumes = [MediaType.MULTIPART_FORM_DATA_VALUE],
         produces = [MediaType.APPLICATION_NDJSON_VALUE]
     )
-    fun getHighestCombinationFromBatch(@RequestPart("file") filePart: Mono<FilePart>): ParallelFlux<Result> {
-        return Mono
+    fun getHighestCombinationFromBatch(@RequestPart("file") filePart: Mono<FilePart>): ParallelFlux<Result> =
+        Mono
             .zip(filePart, fromCallable(this::createTempFile))
             .flatMap { tuple -> tuple.t1.transferTo(tuple.t2).thenReturn(tuple.t2) }
             .flatMapMany { file ->
@@ -49,7 +57,6 @@ class RestController(
             .parallel()
             .runOn(scheduler)
             .map { line -> combinationFinder.getHighestCombination(handParser.parseHand(line)) }
-    }
 
     private fun createTempFile(): File =
         createTempFile("combinations", ".csv")

@@ -1,5 +1,6 @@
 package poker.combinationfinder
 
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import poker.Card
 import poker.Combination
@@ -19,11 +20,16 @@ val handComparator: Comparator<Result> =
         .thenComparing(compareBy(highestCardComparator) { it.hand })
 
 @Service
-open class CombinationFinder(private val combinationPredicates: List<CombinationPredicate>) {
+open class CombinationFinder(
+    private val combinationPredicates: List<CombinationPredicate>,
+    @Value("\${hand.size:5}")
+    private val handSize: Int
+) {
+
     open fun getHighestCombination(hand: Hand): Result {
-        require(hand.size >= 5) { "Input hand size should be at least 5: $hand" }
+        require(hand.size >= handSize) { "Input hand size should be at least $handSize: $hand" }
         return hand
-            .combinations(5)
+            .combinations(handSize)
             .map { Result(getCombination(it), it) }
             .maxWithOrNull(handComparator)!!
     }
