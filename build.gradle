@@ -1,6 +1,7 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.4.10'
-    id 'application'
+    id 'org.springframework.boot' version '2.4.0'
+    id 'io.spring.dependency-management' version '1.0.10.RELEASE'
 }
 group = 'me.pavelgordeev'
 version = '1.0-SNAPSHOT'
@@ -9,9 +10,15 @@ repositories {
     mavenCentral()
 }
 
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+}
+
 compileKotlin {
     kotlinOptions.jvmTarget = '11'
-}
-application {
-    mainClassName = 'MainKt'
 }
