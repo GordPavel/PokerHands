@@ -1,5 +1,6 @@
 package poker
 
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.MediaType
 import org.springframework.http.codec.multipart.FilePart
 import org.springframework.web.bind.annotation.*
@@ -10,7 +11,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Mono.fromCallable
 import reactor.core.publisher.ParallelFlux
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import java.io.File
 import java.io.File.createTempFile
 import java.nio.file.Files.lines
@@ -19,13 +20,13 @@ import java.nio.file.Files.lines
 @RequestMapping("/combination")
 class RestController(
     private val handParser: HandParser,
-    private val combinationFinder: CombinationFinder
+    private val combinationFinder: CombinationFinder,
+    @Qualifier("controllerScheduler")
+    private val scheduler: Scheduler
 ) {
 
-    private val scheduler = Schedulers.newParallel("combinations-batch", 8)
-
     @PutMapping
-    fun getHighestCombinationFrom(@RequestBody hand: Mono<String>): Mono<Pair<Combination, Hand>> =
+    fun getHighestCombinationFrom(@RequestBody hand: Mono<String>): Mono<Result> =
         hand
             .map(handParser::parseHand)
             .map(combinationFinder::getHighestCombination)
@@ -34,7 +35,7 @@ class RestController(
         consumes = [MediaType.MULTIPART_FORM_DATA_VALUE],
         produces = [MediaType.APPLICATION_NDJSON_VALUE]
     )
-    fun getHighestCombinationFromBatch(@RequestPart("file") filePart: Mono<FilePart>): ParallelFlux<Pair<Combination, Hand>> {
+    fun getHighestCombinationFromBatch(@RequestPart("file") filePart: Mono<FilePart>): ParallelFlux<Result> {
         return Mono
             .zip(filePart, fromCallable(this::createTempFile))
             .flatMap { tuple -> tuple.t1.transferTo(tuple.t2).thenReturn(tuple.t2) }

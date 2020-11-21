@@ -2,6 +2,8 @@ package poker
 
 import java.util.*
 
+data class Result(val combination: Combination, val hand: Hand)
+
 data class Card(val suit: Int, val rank: Int) : Comparable<Card> {
     override fun compareTo(other: Card): Int {
         return when {

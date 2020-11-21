@@ -5,6 +5,7 @@ import poker.Card
 import poker.Combination
 import poker.Combination.HIGH
 import poker.Hand
+import poker.Result
 import java.util.*
 import java.util.Comparator.comparing
 import java.util.Comparator.comparingInt
@@ -13,17 +14,17 @@ val combinationComparator: Comparator<Combination> = comparingInt<Combination> {
 
 val highestCardComparator: Comparator<Hand> = comparing { getHighestCard(it) }
 
-val handComparator: Comparator<Pair<Combination, Hand>> =
-    compareBy<Pair<Combination, Hand>, Combination>(combinationComparator) { it.first }
-        .thenComparing(compareBy(highestCardComparator) { it.second })
+val handComparator: Comparator<Result> =
+    compareBy<Result, Combination>(combinationComparator) { it.combination }
+        .thenComparing(compareBy(highestCardComparator) { it.hand })
 
 @Service
-class CombinationFinder(private val combinationPredicates: List<CombinationPredicate>) {
-    fun getHighestCombination(hand: Hand): Pair<Combination, Hand> {
+open class CombinationFinder(private val combinationPredicates: List<CombinationPredicate>) {
+    open fun getHighestCombination(hand: Hand): Result {
         require(hand.size >= 5) { "Input hand size should be at least 5: $hand" }
         return hand
             .combinations(5)
-            .map { Pair(getCombination(it), it) }
+            .map { Result(getCombination(it), it) }
             .maxWithOrNull(handComparator)!!
     }
 
